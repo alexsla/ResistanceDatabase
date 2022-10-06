@@ -1,9 +1,11 @@
 library(tidyverse)
+source("scripts/col_id.R")
+source("scripts/coerce_cols.R")
 
 # import red-legged earth mite data
 # add species, source and year columns, convert resistance column to binary
 RLEM_data <- read_csv("data/RLEM resistance surveillance database.csv") %>%
-  mutate(SPECIES = "Halotydeus destructor",
+  mutate(species = "Halotydeus destructor",
          Resistant = case_when(Resistant == "Y" ~ 1,
                                Resistant == "N" ~ 0),
          source = "RLEM database",
@@ -19,21 +21,15 @@ res_cols <- read_csv("data/Resistance_database_columns.csv") %>%
   select(Columns, RLEM) %>%
   mutate(RLEM = str_extract(string = RLEM, pattern = "(?<=\\().*(?=\\))")) # find column names in RLEM dataset
 
-# create index of which RLEM columns are need to be renamed
-rlem_ind <- which(names(RLEM_data) %in% res_cols$RLEM)
-# create index of which rows contain "new" column names
-res_ind <- which(res_cols$RLEM %in% names(RLEM_data))
+res_cols[19,1] <- "source"
+
 
 # rename RLEM columns to corresponding names in resistance dataset
-names(RLEM_data)[rlem_ind] <- res_cols[res_ind,] %>%
-  arrange(RLEM, names(RLEM_data)[rlem_ind]) %>%
-  select(Columns) %>%
-  as_vector()
+RLEM_data <- as_tibble(col_id(res_data, RLEM_data, res_cols))
+# if any columns in second dataset have different class to first dataset, coerce to same
+RLEM_data <- as_tibble(coerce_cols(res_data, RLEM_data))
 
 # combine the two datasets
 joined_data <- res_data %>%
-  bind_rows(RLEM_data %>% mutate(long = as.numeric(long),
-                                 lat = as.numeric(lat),
-                                 resistance = as.numeric(resistance))) %>%
   select(names(res_data))
 
